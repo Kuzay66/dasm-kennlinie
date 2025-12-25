@@ -12,6 +12,7 @@ st.subheader("Drehzahl–Drehmoment–Kennlinie")
 
 # -------------------------------------------------
 # Styles: kleine, kursiv wirkende Formelzeichen + Sub/Sup
+# + kleine Mobile-Optimierung
 # -------------------------------------------------
 st.markdown(
     """
@@ -20,6 +21,11 @@ st.markdown(
       .fx sub { font-size: 0.72em; vertical-align: sub; }
       .fx sup { font-size: 0.72em; vertical-align: super; }
       .u { font-style: normal; }
+
+      /* Mobile: etwas kompaktere Abstände */
+      @media (max-width: 700px) {
+        .fx { font-size: 0.85rem; }
+      }
     </style>
     """,
     unsafe_allow_html=True
@@ -151,13 +157,10 @@ M_load = np.full_like(n_grid, float(M_L0))
 # Arbeitspunkt = ERSTER Schnittpunkt mit der Drehmomentkennlinie
 # -------------------------------------------------
 diff = M_motor - M_load
-
-# Kandidaten: erste Stelle, wo diff das Vorzeichen wechselt oder genau 0 wird
 cross_idxs = np.where(diff[:-1] * diff[1:] <= 0)[0]
 
 if len(cross_idxs) > 0:
     i = int(cross_idxs[0])
-    # lineare Interpolation zwischen (n_i, diff_i) und (n_{i+1}, diff_{i+1})
     x0, x1 = float(n_grid[i]), float(n_grid[i + 1])
     y0, y1 = float(diff[i]), float(diff[i + 1])
 
@@ -166,16 +169,14 @@ if len(cross_idxs) > 0:
     else:
         n_AP = x0 - y0 * (x1 - x0) / (y1 - y0)
 
-    # Moment am Arbeitspunkt aus der Motorkurve (gleich Last)
     M_AP = float(motor_curve(np.array([n_AP]))[0])
 else:
-    # Falls es gar keinen Schnittpunkt gibt: fallback (wie vorher) -> nächstgelegener Punkt
     idx = int(np.argmin(np.abs(diff)))
     n_AP = float(n_grid[idx])
     M_AP = float(M_motor[idx])
 
 # -------------------------------------------------
-# Plot
+# Plot (hell erzwingen + mobile freundlich)
 # -------------------------------------------------
 fig = go.Figure()
 
@@ -220,7 +221,7 @@ for label_html, (x0, y0) in points.items():
         hoverinfo="skip"
     ))
 
-# Arbeitspunkt (grün) – jetzt erster Schnittpunkt
+# Arbeitspunkt (grün)
 fig.add_trace(go.Scatter(
     x=[n_AP], y=[M_AP],
     mode="markers",
@@ -228,13 +229,30 @@ fig.add_trace(go.Scatter(
     name="Arbeitspunkt"
 ))
 
+# Mobile: etwas kleinere Höhe, damit weniger gescrollt werden muss
+is_mobile = st.session_state.get("IS_MOBILE", False)
+# (wir erkennen Mobile nicht perfekt; deshalb: einfache Heuristik über Sidebar-Hinweis)
+# -> wir setzen eine sinnvolle Standardhöhe
+plot_height = 520
+
 fig.update_layout(
+    template="plotly_white",          # <-- Dark Mode neutralisieren
+    paper_bgcolor="white",
+    plot_bgcolor="white",
     xaxis_title="Drehzahl n [min⁻¹]",
     yaxis_title="Drehmoment M [Nm]",
     xaxis=dict(range=[0, float(n_s)]),
-    margin=dict(l=140, r=30, t=40, b=80),
+    margin=dict(l=120, r=20, t=40, b=70),
     legend=dict(orientation="h", y=1.12),
-    height=640
+    height=plot_height
 )
 
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(
+    fig,
+    use_container_width=True,
+    config={
+        "displayModeBar": True,
+        "scrollZoom": True,   # Zoom per Touch/Trackpad
+        "responsive": True
+    }
+)
