@@ -12,7 +12,6 @@ st.subheader("Drehzahl–Drehmoment–Kennlinie")
 
 # -------------------------------------------------
 # Styles: kleine, kursiv wirkende Formelzeichen + Sub/Sup
-# + kleine Mobile-Optimierung
 # -------------------------------------------------
 st.markdown(
     """
@@ -22,7 +21,6 @@ st.markdown(
       .fx sup { font-size: 0.72em; vertical-align: super; }
       .u { font-style: normal; }
 
-      /* Mobile: etwas kompaktere Abstände */
       @media (max-width: 700px) {
         .fx { font-size: 0.85rem; }
       }
@@ -46,7 +44,7 @@ def labeled_number(parent, label_html, value, step, key):
         return st.number_input("", value=value, step=step, key=key, label_visibility="collapsed")
 
 # -------------------------------------------------
-# Sidebar – Netz (ohne Netzspannungsauswahl)
+# Sidebar – Netz
 # -------------------------------------------------
 with st.sidebar:
     st.header("Netz")
@@ -116,7 +114,7 @@ with st.sidebar:
     )
 
 # -------------------------------------------------
-# Sidebar – Last (nur konstant, klein geschrieben)
+# Sidebar – Last (nur konstant)
 # -------------------------------------------------
 with st.sidebar:
     st.header("Last")
@@ -140,29 +138,26 @@ with st.sidebar:
 # -------------------------------------------------
 # Kennlinienberechnung
 # -------------------------------------------------
-# x-Achse / Rechenbereich jetzt NUR 0 .. n_s
 n_grid = np.linspace(0.0, float(n_s), 800)
 
-# Motorkennlinie (glatt) – Stützstellen bis n_s
 pts_n = np.array([0.0, 0.25 * n_s, 0.60 * n_s, float(n_N), float(n_s)], dtype=float)
 pts_M = np.array([float(M_A), float(M_S), float(M_K), float(M_N), 0.0], dtype=float)
 
 motor_curve = PchipInterpolator(pts_n, pts_M)
 M_motor = motor_curve(n_grid)
 
-# Lastkennlinie (konstant)
 M_load = np.full_like(n_grid, float(M_L0))
 
 # -------------------------------------------------
-# Arbeitspunkt = ERSTER Schnittpunkt mit der Drehmomentkennlinie
+# Arbeitspunkt (erster Schnittpunkt)
 # -------------------------------------------------
 diff = M_motor - M_load
 cross_idxs = np.where(diff[:-1] * diff[1:] <= 0)[0]
 
 if len(cross_idxs) > 0:
     i = int(cross_idxs[0])
-    x0, x1 = float(n_grid[i]), float(n_grid[i + 1])
-    y0, y1 = float(diff[i]), float(diff[i + 1])
+    x0, x1 = n_grid[i], n_grid[i + 1]
+    y0, y1 = diff[i], diff[i + 1]
 
     if abs(y1 - y0) < 1e-12:
         n_AP = x0
@@ -176,7 +171,7 @@ else:
     M_AP = float(M_motor[idx])
 
 # -------------------------------------------------
-# Plot (hell erzwingen + mobile freundlich)
+# Plot
 # -------------------------------------------------
 fig = go.Figure()
 
@@ -192,7 +187,6 @@ fig.add_trace(go.Scatter(
     line=dict(color="red", width=3)
 ))
 
-# Kennpunkte
 points = {
     "M<sub>A</sub>": (0.0, float(M_A)),
     "M<sub>S</sub>": (0.25 * n_s, float(M_S)),
@@ -201,15 +195,13 @@ points = {
 }
 
 for label_html, (x0, y0) in points.items():
-    is_nenn = ("<sub>N</sub>" in label_html)
-
     fig.add_trace(go.Scatter(
         x=[x0], y=[y0],
         mode="markers+text",
         text=[label_html],
         textposition="top right",
-        textfont=dict(size=12),
-        marker=dict(size=10, color=("darkred" if is_nenn else "black")),
+        textfont=dict(size=12, color="black"),
+        marker=dict(size=10, color="black"),
         showlegend=False
     ))
 
@@ -217,11 +209,9 @@ for label_html, (x0, y0) in points.items():
         x=[x0, x0], y=[0, y0],
         mode="lines",
         line=dict(dash="dot", width=1, color="rgba(0,0,0,0.45)"),
-        showlegend=False,
-        hoverinfo="skip"
+        showlegend=False
     ))
 
-# Arbeitspunkt (grün)
 fig.add_trace(go.Scatter(
     x=[n_AP], y=[M_AP],
     mode="markers",
@@ -229,22 +219,21 @@ fig.add_trace(go.Scatter(
     name="Arbeitspunkt"
 ))
 
-# Mobile: etwas kleinere Höhe, damit weniger gescrollt werden muss
-is_mobile = st.session_state.get("IS_MOBILE", False)
-# (wir erkennen Mobile nicht perfekt; deshalb: einfache Heuristik über Sidebar-Hinweis)
-# -> wir setzen eine sinnvolle Standardhöhe
-plot_height = 520
-
 fig.update_layout(
-    template="plotly_white",          # <-- Dark Mode neutralisieren
+    template="plotly_white",
     paper_bgcolor="white",
     plot_bgcolor="white",
     xaxis_title="Drehzahl n [min⁻¹]",
     yaxis_title="Drehmoment M [Nm]",
     xaxis=dict(range=[0, float(n_s)]),
     margin=dict(l=120, r=20, t=40, b=70),
-    legend=dict(orientation="h", y=1.12),
-    height=plot_height
+    legend=dict(
+        orientation="h",
+        y=1.12,
+        font=dict(color="black", size=12)
+    ),
+    font=dict(color="black"),
+    height=520
 )
 
 st.plotly_chart(
@@ -252,7 +241,7 @@ st.plotly_chart(
     use_container_width=True,
     config={
         "displayModeBar": True,
-        "scrollZoom": True,   # Zoom per Touch/Trackpad
+        "scrollZoom": True,
         "responsive": True
     }
 )
