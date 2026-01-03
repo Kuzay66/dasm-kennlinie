@@ -225,7 +225,11 @@ fig.update_layout(
     plot_bgcolor="white",
     xaxis_title="Drehzahl n [min⁻¹]",
     yaxis_title="Drehmoment M [Nm]",
-    xaxis=dict(range=[0, float(n_s)]),
+    # FIX: Achsen nicht zoombar/verschiebbar
+    xaxis=dict(range=[0, float(n_s)], fixedrange=True),
+    yaxis=dict(fixedrange=True),
+    # FIX: kein Drag-Zoom / Pan
+    dragmode=False,
     margin=dict(l=120, r=20, t=40, b=70),
     legend=dict(
         orientation="h",
@@ -240,8 +244,10 @@ st.plotly_chart(
     fig,
     use_container_width=True,
     config={
-        "displayModeBar": True,
-        "scrollZoom": True,
+        # FIX: Modebar aus + Zoom/Doubleclick aus
+        "displayModeBar": False,
+        "scrollZoom": False,
+        "doubleClick": False,
         "responsive": True
     }
 )
