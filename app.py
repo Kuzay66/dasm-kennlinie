@@ -29,13 +29,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-def labeled_selectbox(parent, label_html, options, key, index=0):
-    c1, c2 = parent.columns([1.35, 2.0], gap="small")
-    with c1:
-        st.markdown(f'<div class="fx">{label_html}</div>', unsafe_allow_html=True)
-    with c2:
-        return st.selectbox("", options, index=index, key=key, label_visibility="collapsed")
-
 def labeled_number(parent, label_html, value, step, key):
     c1, c2 = parent.columns([1.35, 2.0], gap="small")
     with c1:
@@ -44,32 +37,20 @@ def labeled_number(parent, label_html, value, step, key):
         return st.number_input("", value=value, step=step, key=key, label_visibility="collapsed")
 
 # -------------------------------------------------
-# Sidebar – Netz
+# FIX: Nur 50 Hz und nur 1500 min^-1 (4-polig bei 50 Hz)
 # -------------------------------------------------
+f_net = 50
+n_s = 1500
+
 with st.sidebar:
     st.header("Netz")
-    f_net = labeled_selectbox(
-        st,
-        'Netzfrequenz&nbsp;f&nbsp;<span class="u">[Hz]</span>',
-        [50, 60],
-        key="FNET",
-        index=0
-    )
+    st.markdown('<div class="fx">Netzfrequenz&nbsp;f&nbsp;<span class="u">[Hz]</span></div>', unsafe_allow_html=True)
+    st.info("50")
 
-# -------------------------------------------------
-# Sidebar – Motor
-# -------------------------------------------------
 with st.sidebar:
     st.header("Motor")
-
-    ns_options = [3000, 1500, 1000, 750] if f_net == 50 else [3600, 1800, 1200, 900]
-    n_s = labeled_selectbox(
-        st,
-        'Synchrondrehzahl&nbsp;n<sub>s</sub>&nbsp;<span class="u">[min<sup>−1</sup>]</span>',
-        ns_options,
-        key="NS",
-        index=1
-    )
+    st.markdown('<div class="fx">Synchrondrehzahl&nbsp;n<sub>s</sub>&nbsp;<span class="u">[min<sup>−1</sup>]</span></div>', unsafe_allow_html=True)
+    st.info("1500")
 
     n_N_default = int(float(n_s) * 0.96)
     n_N = labeled_number(
@@ -114,18 +95,12 @@ with st.sidebar:
     )
 
 # -------------------------------------------------
-# Sidebar – Last (nur konstant)
+# Sidebar – Last (nur konstant, keine Auswahl)
 # -------------------------------------------------
 with st.sidebar:
     st.header("Last")
-
-    _ = labeled_selectbox(
-        st,
-        'Lasttyp',
-        ["konstant"],
-        key="LOADTYPE",
-        index=0
-    )
+    st.markdown('<div class="fx">Lasttyp</div>', unsafe_allow_html=True)
+    st.info("konstant")
 
     M_L0 = labeled_number(
         st,
@@ -140,8 +115,17 @@ with st.sidebar:
 # -------------------------------------------------
 n_grid = np.linspace(0.0, float(n_s), 800)
 
-pts_n = np.array([0.0, 0.25 * n_s, 0.60 * n_s, float(n_N), float(n_s)], dtype=float)
+# FIX: bei ns=1500 soll Ms bei ca. 800, Mk bei ca. 1100 liegen
+ms_pos = 800.0
+mk_pos = 1100.0
+
+pts_n = np.array([0.0, ms_pos, mk_pos, float(n_N), float(n_s)], dtype=float)
 pts_M = np.array([float(M_A), float(M_S), float(M_K), float(M_N), 0.0], dtype=float)
+
+# robust sortieren (falls n_N ungünstig gewählt wird)
+order = np.argsort(pts_n)
+pts_n = pts_n[order]
+pts_M = pts_M[order]
 
 motor_curve = PchipInterpolator(pts_n, pts_M)
 M_motor = motor_curve(n_grid)
@@ -189,8 +173,8 @@ fig.add_trace(go.Scatter(
 
 points = {
     "M<sub>A</sub>": (0.0, float(M_A)),
-    "M<sub>S</sub>": (0.25 * n_s, float(M_S)),
-    "M<sub>K</sub>": (0.60 * n_s, float(M_K)),
+    "M<sub>S</sub>": (ms_pos, float(M_S)),
+    "M<sub>K</sub>": (mk_pos, float(M_K)),
     "M<sub>N</sub>": (float(n_N), float(M_N)),
 }
 
@@ -225,10 +209,8 @@ fig.update_layout(
     plot_bgcolor="white",
     xaxis_title="Drehzahl n [min⁻¹]",
     yaxis_title="Drehmoment M [Nm]",
-    # FIX: Achsen nicht zoombar/verschiebbar
     xaxis=dict(range=[0, float(n_s)], fixedrange=True),
     yaxis=dict(fixedrange=True),
-    # FIX: kein Drag-Zoom / Pan
     dragmode=False,
     margin=dict(l=120, r=20, t=40, b=70),
     legend=dict(
@@ -244,7 +226,6 @@ st.plotly_chart(
     fig,
     use_container_width=True,
     config={
-        # FIX: Modebar aus + Zoom/Doubleclick aus
         "displayModeBar": False,
         "scrollZoom": False,
         "doubleClick": False,
